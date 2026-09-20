@@ -166,3 +166,33 @@ This log records the meaningful AI-assisted design and engineering decisions mad
 **Final decision:** 39 backend tests, all using `MockLLMService` via monkeypatch. No live API calls in CI.
 
 **Reason:** Fast, deterministic, free. Real Gemini calls are validated separately by running the application manually.
+
+---
+
+## What I Would Improve for Production
+
+This section is a personal note on what I'd want to fix or add if this were going to a real production environment rather than being a demo submission.
+
+**1. Sessions stored in memory — not suitable for production**
+Right now, all sessions are stored in a Python dictionary in memory. That means if the server restarts, all sessions are lost. In a real app, I'd store session state in something like PostgreSQL or Redis so sessions can survive restarts and scale across multiple server instances.
+
+**2. No real user authentication**
+Anyone who knows a session ID can access that session. For a real product dealing with personal legal wishes, I'd add proper user accounts, login, and make sure sessions are tied to a specific authenticated user.
+
+**3. LLM is called on every single message**
+Currently every message goes to Gemini even if the user says something like "yes" or "okay". I'd add a lightweight check to see if a message is likely to contain useful field information before making an API call. This would reduce cost and latency significantly.
+
+**4. The Gemini model name is hardcoded in .env**
+We've already had the problem twice during development where the model name became deprecated overnight (gemini-2.0-flash-lite, gemini-2.5-flash-lite). In production, I'd add automatic fallback logic — if the configured model returns a 404, try the next available model.
+
+**5. No rate limiting or request validation on the API**
+The backend currently accepts any input without rate limiting. In production, I'd add rate limiting per session, input length validation, and basic abuse prevention.
+
+**6. Document generation could be richer**
+The current HTML document is functional but basic. For a real product, I'd want it to generate a properly formatted PDF with legal-style formatting, not just raw HTML rendered in an iframe.
+
+**7. Better handling of partial/incomplete conversations**
+Right now if a user just closes the tab mid-conversation, there's no way to resume. I'd add session recovery so a returning user can pick up where they left off, since filling in personal wishes information can be emotional and interrupted easily.
+
+Overall the architecture is solid — the canonical state approach, the validation layer, and the LLM abstraction are all production-ready patterns. The gaps are mostly infrastructure (storage, auth, rate limiting) rather than core design.
+
